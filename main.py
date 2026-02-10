@@ -163,15 +163,21 @@ def index_artifacts(
     ),
 ) -> dict[str, Any]:
     """Index handoffs, plans, and continuity ledgers into the artifact database."""
-    args = ["--mode", mode]
-
+    # Map mode to CLI flags (script uses --handoffs, --plans, etc., not --mode)
     if mode == "file":
         if not file_path:
             return {
                 "success": False,
                 "error": "file_path is required when mode=file",
             }
-        args.extend(["--file", file_path])
+        args = ["--file", file_path]
+    elif mode in ("all", "handoffs", "plans", "continuity"):
+        args = [f"--{mode}"]
+    else:
+        return {
+            "success": False,
+            "error": f"Invalid mode: {mode}. Use: all, handoffs, plans, continuity, or file",
+        }
 
     result = run_opc_script("artifact_index.py", args)
 
