@@ -1,0 +1,24 @@
+[project]
+name = "opc-memory-mcp"
+version = "0.1.0"
+description = "MCP server exposing OPC memory scripts for semantic recall and learning storage"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp[cli]>=1.6.0",
+    "pydantic>=2.11.0",
+]
+
+[project.scripts]
+opc-memory-server = "main:run_mcp_server"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+only-include = ["main.py"]
+
+[tool.hatch.build.targets.sdist]
+only-include = ["main.py", "pyproject.toml", "README.md"]
