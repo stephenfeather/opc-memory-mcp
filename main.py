@@ -284,6 +284,46 @@ def query_artifacts(
         }
 
 
+@mcp.tool()
+def start_daemon() -> dict[str, Any]:
+    """Start the memory extraction daemon.
+
+    The daemon monitors for ended Claude sessions and automatically
+    extracts learnings from their conversation logs.
+    """
+    result = run_opc_script("memory_daemon.py", ["start"])
+    return {
+        "success": result.returncode == 0,
+        "output": result.stdout.strip() if result.stdout else None,
+        "error": result.stderr.strip() if result.returncode != 0 and result.stderr else None,
+    }
+
+
+@mcp.tool()
+def stop_daemon() -> dict[str, Any]:
+    """Stop the memory extraction daemon."""
+    result = run_opc_script("memory_daemon.py", ["stop"])
+    return {
+        "success": result.returncode == 0,
+        "output": result.stdout.strip() if result.stdout else None,
+        "error": result.stderr.strip() if result.returncode != 0 and result.stderr else None,
+    }
+
+
+@mcp.tool()
+def daemon_status() -> dict[str, Any]:
+    """Check the status of the memory extraction daemon.
+
+    Returns whether the daemon is running and its process ID if active.
+    """
+    result = run_opc_script("memory_daemon.py", ["status"])
+    return {
+        "success": result.returncode == 0,
+        "output": result.stdout.strip() if result.stdout else None,
+        "running": "running" in result.stdout.lower() if result.stdout else False,
+    }
+
+
 def run_mcp_server():
     """Entry point for the MCP server."""
     # Handle signals for graceful shutdown in multi-session environments
