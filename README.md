@@ -13,6 +13,9 @@ This project provides an MCP interface to the **OPC (Opinionated Persistent Cont
 | `query_artifacts` | Search Context Graph for precedent from past sessions |
 | `index_artifacts` | Index handoffs, plans, and continuity ledgers |
 | `mark_handoff` | Mark handoff outcomes for tracking |
+| `start_daemon` | Start the memory extraction daemon |
+| `stop_daemon` | Stop the memory extraction daemon |
+| `daemon_status` | Check daemon status and view recent logs |
 
 ## Prerequisites
 
@@ -87,6 +90,9 @@ If you have Claude Code skills that reference OPC memory tools (e.g., `/recall`,
 | `query_artifacts` | `mcp__opc-memory__query_artifacts` |
 | `index_artifacts` | `mcp__opc-memory__index_artifacts` |
 | `mark_handoff` | `mcp__opc-memory__mark_handoff` |
+| `start_daemon` | `mcp__opc-memory__start_daemon` |
+| `stop_daemon` | `mcp__opc-memory__stop_daemon` |
+| `daemon_status` | `mcp__opc-memory__daemon_status` |
 
 ## Installation
 
@@ -176,6 +182,22 @@ Index specific file:
 Mark the latest handoff as successful:
 - outcome: "SUCCEEDED"
 - notes: "All tasks completed"
+```
+
+### Daemon Management
+
+```
+Check daemon status:
+daemon_status()
+# Returns: running status, PID, recent log entries
+
+Start the daemon:
+start_daemon()
+# Starts memory extraction daemon if not running
+
+Stop the daemon:
+stop_daemon()
+# Stops the running daemon
 ```
 
 ## Development
