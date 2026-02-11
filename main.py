@@ -51,7 +51,10 @@ OPC_DIR = get_opc_dir()
 
 def run_opc_script(script: str, args: list[str]) -> subprocess.CompletedProcess:
     """Run an OPC script with correct working directory and PYTHONPATH."""
-    cmd = ["uv", "run", "python", f"scripts/core/{script}"] + args
+    # Use absolute path for script - relative paths don't work with uv run
+    # because uv resolves the path before subprocess.run changes cwd
+    script_path = str(Path(OPC_DIR) / "scripts" / "core" / script)
+    cmd = ["uv", "run", "python", script_path] + args
     return subprocess.run(
         cmd,
         cwd=OPC_DIR,
@@ -158,7 +161,11 @@ def index_artifacts(
         default="all",
     ),
     file_path: str = Field(
-        description="Path to single file (required when mode=file)",
+        description="Path to single file (required when mode=file). Use absolute path or provide project_dir.",
+        default="",
+    ),
+    project_dir: str = Field(
+        description="Project directory for resolving relative file paths",
         default="",
     ),
 ) -> dict[str, Any]:
@@ -170,7 +177,23 @@ def index_artifacts(
                 "success": False,
                 "error": "file_path is required when mode=file",
             }
-        args = ["--file", file_path]
+        # Resolve relative paths
+        file_path_obj = Path(file_path)
+        if not file_path_obj.is_absolute():
+            if project_dir:
+                file_path_obj = Path(project_dir) / file_path
+            else:
+                return {
+                    "success": False,
+                    "error": f"Relative path '{file_path}' requires project_dir parameter or use absolute path",
+                }
+        # Verify file exists before calling script
+        if not file_path_obj.exists():
+            return {
+                "success": False,
+                "error": f"File not found: {file_path_obj}",
+            }
+        args = ["--file", str(file_path_obj)]
     elif mode in ("all", "handoffs", "plans", "continuity"):
         args = [f"--{mode}"]
     else:
@@ -209,7 +232,9 @@ def mark_handoff(
     args = ["--outcome", outcome]
 
     if handoff_id:
-        args.extend(["--id", handoff_id])
+        args.extend(["--handoff", handoff_id])
+    else:
+        args.append("--latest")
     if notes:
         args.extend(["--notes", notes])
 
