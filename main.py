@@ -17,36 +17,51 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 
-def get_opc_dir() -> str:
-    """Resolve OPC directory from env var or config file.
+def load_opc_config() -> dict:
+    """Load OPC configuration from env vars and config file.
 
-    Resolution order:
+    Resolution order for opc_dir:
     1. CLAUDE_OPC_DIR environment variable (explicit override)
     2. ~/.claude/opc.json config file (persistent setting)
     3. Fallback to hardcoded default
-    """
-    # 1. Try env var
-    env_dir = os.environ.get("CLAUDE_OPC_DIR")
-    if env_dir and Path(env_dir).exists():
-        return env_dir
 
-    # 2. Try config file
+    Also loads host_id and host_name from opc.json if present.
+
+    Returns:
+        Dict with keys: opc_dir, host_id, host_name
+    """
+    config = {"opc_dir": "", "host_id": "", "host_name": ""}
+
+    # Try config file first (for host_id/host_name even if env overrides opc_dir)
     config_path = Path.home() / ".claude" / "opc.json"
     if config_path.exists():
         try:
-            config = json.loads(config_path.read_text())
-            opc_dir = config.get("opc_dir")
+            file_config = json.loads(config_path.read_text())
+            config["host_id"] = file_config.get("host_id", "")
+            config["host_name"] = file_config.get("host_name", "")
+            opc_dir = file_config.get("opc_dir", "")
             if opc_dir and Path(opc_dir).exists():
-                return opc_dir
+                config["opc_dir"] = opc_dir
         except (json.JSONDecodeError, OSError):
             pass
 
-    # 3. Fallback
-    return "/Users/stephenfeather/opc"
+    # Env var overrides opc_dir from config file
+    env_dir = os.environ.get("CLAUDE_OPC_DIR")
+    if env_dir and Path(env_dir).exists():
+        config["opc_dir"] = env_dir
+
+    # Fallback for opc_dir
+    if not config["opc_dir"]:
+        config["opc_dir"] = "/Users/stephenfeather/opc"
+
+    return config
 
 
-# OPC directory where scripts live
-OPC_DIR = get_opc_dir()
+# Load configuration
+_OPC_CONFIG = load_opc_config()
+OPC_DIR = _OPC_CONFIG["opc_dir"]
+HOST_ID = _OPC_CONFIG["host_id"]
+HOST_NAME = _OPC_CONFIG["host_name"]
 
 
 def run_opc_script(script: str, args: list[str]) -> subprocess.CompletedProcess:
@@ -93,6 +108,8 @@ def store_learning(
         args.extend(["--context", context])
     if tags:
         args.extend(["--tags", tags])
+    if HOST_ID:
+        args.extend(["--host-id", HOST_ID])
 
     result = run_opc_script("store_learning.py", args)
 
