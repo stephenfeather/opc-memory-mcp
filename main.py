@@ -95,6 +95,10 @@ def store_learning(
     context: str = Field(description="What this relates to", default=""),
     tags: str = Field(description="Comma-separated tags", default=""),
     confidence: str = Field(description="high, medium, or low", default="medium"),
+    supersedes: str = Field(
+        description="UUID of an older learning this one replaces (atomic supersede)",
+        default="",
+    ),
 ) -> dict[str, Any]:
     """Store a learning in the OPC memory system with embeddings for semantic recall."""
     args = [
@@ -108,6 +112,8 @@ def store_learning(
         args.extend(["--context", context])
     if tags:
         args.extend(["--tags", tags])
+    if supersedes:
+        args.extend(["--supersedes", supersedes])
     if HOST_ID:
         args.extend(["--host-id", HOST_ID])
 
