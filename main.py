@@ -17,6 +17,41 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 
+def _detect_project() -> str:
+    """Auto-detect project name from environment or git.
+
+    Priority:
+    1. CLAUDE_PROJECT_DIR env var → basename, handling worktrees
+    2. git rev-parse --show-toplevel → basename
+    3. Empty string (graceful degradation)
+    """
+    project_dir = os.environ.get("CLAUDE_PROJECT_DIR", "")
+    if project_dir:
+        p = Path(project_dir)
+        # Handle worktrees: .../repo/.worktrees/branch → repo
+        parts = p.parts
+        if ".worktrees" in parts:
+            idx = parts.index(".worktrees")
+            if idx > 0:
+                return parts[idx - 1]
+        return p.name
+
+    # Fall back to git
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return Path(result.stdout.strip()).name
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        pass
+
+    return ""
+
+
 def load_opc_config() -> dict:
     """Load OPC configuration from env vars and config file.
 
@@ -99,8 +134,14 @@ def store_learning(
         description="UUID of an older learning this one replaces (atomic supersede)",
         default="",
     ),
+    project: str = Field(
+        description="Project name for recall relevance (auto-detected if omitted)",
+        default="",
+    ),
 ) -> dict[str, Any]:
     """Store a learning in the OPC memory system with embeddings for semantic recall."""
+    resolved_project = project or _detect_project()
+
     args = [
         "--session-id", session_id,
         "--type", learning_type,
@@ -114,6 +155,8 @@ def store_learning(
         args.extend(["--tags", tags])
     if supersedes:
         args.extend(["--supersedes", supersedes])
+    if resolved_project:
+        args.extend(["--project", resolved_project])
     if HOST_ID:
         args.extend(["--host-id", HOST_ID])
 
@@ -139,8 +182,14 @@ def recall_learnings(
     text_only: bool = Field(description="Fast text search without embeddings", default=False),
     vector_only: bool = Field(description="Pure vector/embedding search", default=False),
     threshold: float = Field(description="Similarity threshold (0.0-1.0)", default=0.2),
+    project: str = Field(
+        description="Project name to boost recall relevance (auto-detected if omitted)",
+        default="",
+    ),
 ) -> dict[str, Any]:
     """Search the OPC memory system for relevant learnings using semantic search."""
+    resolved_project = project or _detect_project()
+
     args = [
         "--query", query,
         "--k", str(k),
@@ -151,6 +200,8 @@ def recall_learnings(
         args.append("--text-only")
     if vector_only:
         args.append("--vector-only")
+    if resolved_project:
+        args.extend(["--project", resolved_project])
 
     result = run_opc_script("recall_learnings.py", args)
 
