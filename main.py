@@ -186,6 +186,14 @@ def recall_learnings(
         description="Project name to boost recall relevance (auto-detected if omitted)",
         default="",
     ),
+    tags: str = Field(
+        description="Space-separated tags to boost matching results via reranker",
+        default="",
+    ),
+    tags_strict: bool = Field(
+        description="Hard-filter to results sharing at least one tag with --tags",
+        default=False,
+    ),
 ) -> dict[str, Any]:
     """Search the OPC memory system for relevant learnings using semantic search."""
     resolved_project = project or _detect_project()
@@ -202,6 +210,10 @@ def recall_learnings(
         args.append("--vector-only")
     if resolved_project:
         args.extend(["--project", resolved_project])
+    if tags:
+        args.extend(["--tags", *tags.split()])
+    if tags_strict:
+        args.append("--tags-strict")
 
     result = run_opc_script("recall_learnings.py", args)
 
