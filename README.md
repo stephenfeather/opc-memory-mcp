@@ -16,6 +16,7 @@ This project provides an MCP interface to the **OPC (Opinionated Persistent Cont
 | `start_daemon` | Start the memory extraction daemon |
 | `stop_daemon` | Stop the memory extraction daemon |
 | `daemon_status` | Check daemon status and view recent logs |
+| `detect_patterns` | Run on-demand pattern detection across stored learnings |
 
 ## Prerequisites
 
@@ -93,6 +94,7 @@ If you have Claude Code skills that reference OPC memory tools (e.g., `/recall`,
 | `start_daemon` | `mcp__opc-memory__start_daemon` |
 | `stop_daemon` | `mcp__opc-memory__stop_daemon` |
 | `daemon_status` | `mcp__opc-memory__daemon_status` |
+| `detect_patterns` | `mcp__opc-memory__detect_patterns` |
 
 ## Installation
 
@@ -182,6 +184,20 @@ Index specific file:
 Mark the latest handoff as successful:
 - outcome: "SUCCEEDED"
 - notes: "All tasks completed"
+```
+
+### detect_patterns
+
+```
+Dry run to preview patterns:
+- dry_run: true
+
+Run detection and write to database:
+- min_confidence: 0.3
+- use_llm: false
+
+View last run's report:
+- report: true
 ```
 
 ### Daemon Management
