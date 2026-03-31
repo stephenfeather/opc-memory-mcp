@@ -423,6 +423,60 @@ def daemon_status() -> dict[str, Any]:
     }
 
 
+@mcp.tool()
+def detect_patterns(
+    dry_run: bool = Field(
+        description="Preview patterns without writing to database", default=False
+    ),
+    report: bool = Field(
+        description="Show report from the last detection run instead of running new detection",
+        default=False,
+    ),
+    min_confidence: float = Field(
+        description="Minimum pattern confidence threshold (0.0-1.0)", default=0.3
+    ),
+    use_llm: bool = Field(
+        description="Use LLM-based classifier instead of heuristic", default=False
+    ),
+) -> dict[str, Any]:
+    """Run on-demand pattern detection across stored learnings.
+
+    Clusters learnings by semantic similarity and identifies recurring
+    patterns (solutions, errors, decisions). Use dry_run to preview,
+    or report to see the last run's results.
+    """
+    args = []
+    if report:
+        args.append("--report")
+    else:
+        if dry_run:
+            args.append("--dry-run")
+        if use_llm:
+            args.append("--use-llm")
+        args.extend(["--min-confidence", str(min_confidence)])
+
+    result = run_opc_script("pattern_batch.py", args)
+
+    if report:
+        return {
+            "success": result.returncode == 0,
+            "report": result.stdout.strip() if result.stdout else None,
+            "error": result.stderr.strip() if result.returncode != 0 and result.stderr else None,
+        }
+
+    # pattern_batch.py outputs JSON
+    try:
+        data = json.loads(result.stdout) if result.stdout else {}
+    except json.JSONDecodeError:
+        data = {"raw_output": result.stdout.strip() if result.stdout else None}
+
+    return {
+        "success": result.returncode == 0,
+        **data,
+        "error": result.stderr.strip() if result.returncode != 0 and result.stderr else None,
+    }
+
+
 def run_mcp_server():
     """Entry point for the MCP server."""
     # Handle signals for graceful shutdown in multi-session environments
