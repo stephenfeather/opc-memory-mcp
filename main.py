@@ -194,6 +194,10 @@ def recall_learnings(
         description="Hard-filter to results sharing at least one tag with --tags",
         default=False,
     ),
+    json_full: bool = Field(
+        description="Return full metadata including recall_count, pattern_strength, and pattern_tags",
+        default=False,
+    ),
 ) -> dict[str, Any]:
     """Search the OPC memory system for relevant learnings using semantic search."""
     resolved_project = project or _detect_project()
@@ -214,6 +218,8 @@ def recall_learnings(
         args.extend(["--tags", *tags.split()])
     if tags_strict:
         args.append("--tags-strict")
+    if json_full:
+        args.append("--json-full")
 
     result = run_opc_script("recall_learnings.py", args)
 
