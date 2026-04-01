@@ -198,6 +198,10 @@ def recall_learnings(
         description="Return full metadata including recall_count, pattern_strength, and pattern_tags",
         default=False,
     ),
+    structured: bool = Field(
+        description="Group results by learning_type in output",
+        default=False,
+    ),
 ) -> dict[str, Any]:
     """Search the OPC memory system for relevant learnings using semantic search."""
     resolved_project = project or _detect_project()
@@ -220,6 +224,8 @@ def recall_learnings(
         args.append("--tags-strict")
     if json_full:
         args.append("--json-full")
+    if structured:
+        args.append("--structured")
 
     result = run_opc_script("recall_learnings.py", args)
 
@@ -236,7 +242,7 @@ def recall_learnings(
         return {
             "success": True,
             "learnings": learnings,
-            "count": len(learnings) if isinstance(learnings, list) else 1,
+            "count": learnings.get("total", len(learnings.get("results", []))),
         }
     except json.JSONDecodeError:
         # Return raw output if not JSON
