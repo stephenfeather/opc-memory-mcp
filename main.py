@@ -529,6 +529,43 @@ def detect_patterns(
     }
 
 
+@mcp.tool()
+def memory_metrics(
+    period: str = Field(
+        description="Date range filter as START:END in ISO-8601 date format "
+        "(e.g. '2026-03-01:2026-03-31'). Omit for all-time metrics.",
+        default="",
+    ),
+) -> dict[str, Any]:
+    """Return metrics about the OPC memory system.
+
+    Provides counts of stored learnings (active, superseded, total),
+    per-session averages, confidence and classification distributions,
+    dedup coverage, extraction stats, stale-learning counts, top tags,
+    superseded ratios, and temporal range info.
+
+    When period is set, most metrics are filtered to that date range.
+    extraction_stats is never filtered (sessions have different semantics).
+    """
+    args = ["--json"]
+    if period:
+        args.extend(["--period", period])
+
+    result = run_opc_script("memory_metrics.py", args)
+
+    try:
+        data = json.loads(result.stdout) if result.stdout else {}
+    except json.JSONDecodeError:
+        data = {"raw_output": result.stdout.strip() if result.stdout else None}
+
+    return {
+        "version": __version__,
+        "success": result.returncode == 0,
+        **data,
+        "error": result.stderr.strip() if result.returncode != 0 and result.stderr else None,
+    }
+
+
 def run_mcp_server():
     """Entry point for the MCP server."""
     # Handle signals for graceful shutdown in multi-session environments
