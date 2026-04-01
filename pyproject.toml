@@ -1,6 +1,6 @@
 [project]
 name = "opc-memory-mcp"
-version = "0.7.3"
+version = "0.7.4"
 description = "MCP server exposing OPC memory scripts for semantic recall and learning storage"
 readme = "README.md"
 requires-python = ">=3.11"
