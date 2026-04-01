@@ -566,6 +566,101 @@ def memory_metrics(
     }
 
 
+@mcp.tool()
+def store_feedback(
+    learning_id: str = Field(description="UUID of the learning to give feedback on"),
+    helpful: bool = Field(
+        description="True if the learning was helpful, False if not helpful"
+    ),
+    session_id: str = Field(
+        description="Session identifier", default="cli"
+    ),
+    context: str = Field(
+        description="Free text explaining why the feedback was given", default=""
+    ),
+    source: str = Field(
+        description="Feedback source (e.g. 'manual', 'auto')", default="manual"
+    ),
+) -> dict[str, Any]:
+    """Store feedback on a specific learning (helpful or not helpful).
+
+    Captures explicit signal about whether a recalled learning was useful
+    so the memory system can weight future recall accordingly.
+    """
+    args = ["store", "--learning-id", learning_id]
+    if helpful:
+        args.append("--helpful")
+    else:
+        args.append("--not-helpful")
+    if session_id:
+        args.extend(["--session-id", session_id])
+    if context:
+        args.extend(["--context", context])
+    if source:
+        args.extend(["--source", source])
+
+    result = run_opc_script("memory_feedback.py", args)
+
+    try:
+        data = json.loads(result.stdout) if result.stdout else {}
+    except json.JSONDecodeError:
+        data = {"raw_output": result.stdout.strip() if result.stdout else None}
+
+    return {
+        "version": __version__,
+        "success": result.returncode == 0 and data.get("success", False),
+        **data,
+        "error": result.stderr.strip() if result.returncode != 0 and result.stderr else data.get("error"),
+    }
+
+
+@mcp.tool()
+def get_feedback(
+    learning_id: str = Field(description="UUID of the learning to get feedback for"),
+) -> dict[str, Any]:
+    """Get all feedback for a specific learning.
+
+    Returns the learning ID, total feedback count, helpful/not-helpful
+    breakdown, and the full list of individual feedback entries.
+    """
+    result = run_opc_script("memory_feedback.py", ["get", "--learning-id", learning_id])
+
+    try:
+        data = json.loads(result.stdout) if result.stdout else {}
+    except json.JSONDecodeError:
+        data = {"raw_output": result.stdout.strip() if result.stdout else None}
+
+    return {
+        "version": __version__,
+        "success": result.returncode == 0,
+        **data,
+        "error": result.stderr.strip() if result.returncode != 0 and result.stderr else None,
+    }
+
+
+@mcp.tool()
+def feedback_summary() -> dict[str, Any]:
+    """Return aggregate feedback statistics.
+
+    Shows total feedback count, helpful/not-helpful breakdown,
+    helpfulness rate, unique learnings rated, and top helpful
+    and not-helpful learnings.
+    """
+    result = run_opc_script("memory_feedback.py", ["summary"])
+
+    try:
+        data = json.loads(result.stdout) if result.stdout else {}
+    except json.JSONDecodeError:
+        data = {"raw_output": result.stdout.strip() if result.stdout else None}
+
+    return {
+        "version": __version__,
+        "success": result.returncode == 0,
+        **data,
+        "error": result.stderr.strip() if result.returncode != 0 and result.stderr else None,
+    }
+
+
 def run_mcp_server():
     """Entry point for the MCP server."""
     # Handle signals for graceful shutdown in multi-session environments
