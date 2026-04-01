@@ -2,7 +2,9 @@
 
 MCP server that exposes OPC memory scripts as tools for Claude Code and Claude Desktop.
 
-This project provides an MCP interface to the **OPC (Opinionated Persistent Context)** memory system from [Continuous Claude v3](https://github.com/parcadei/Continuous-Claude-v3). OPC enables semantic memory storage and retrieval, allowing Claude to learn from past sessions and maintain context across conversations.
+This project provides an MCP interface to the **OPC (Opinionated Persistent Context)** memory system from the [OPC project](https://github.com/stephenfeather/opc). OPC enables semantic memory storage and retrieval, allowing Claude to learn from past sessions and maintain context across conversations.
+
+> **Note:** This server was originally built against Continuous-Claude-v3. As of v0.7.2, it targets the standalone [OPC repository](https://github.com/stephenfeather/opc) which contains the memory scripts, database schema, and pattern detection infrastructure.
 
 ## Tools
 
@@ -22,11 +24,11 @@ This project provides an MCP interface to the **OPC (Opinionated Persistent Cont
 
 This MCP server requires:
 
-1. **OPC infrastructure from Continuous Claude v3** - The memory scripts and PostgreSQL database schema from the parent project
+1. **OPC project** - The memory scripts and PostgreSQL database schema from the [OPC repository](https://github.com/stephenfeather/opc)
 2. **PostgreSQL database** - Running with the OPC schema (sessions, file_claims, archival_memory tables)
 3. **Environment variables** - `DATABASE_URL` pointing to your PostgreSQL instance
 
-See the [Continuous Claude v3 repository](https://github.com/parcadei/Continuous-Claude-v3) for setup instructions.
+See the [OPC repository](https://github.com/stephenfeather/opc) for setup instructions.
 
 ## OPC Directory Configuration
 
