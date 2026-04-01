@@ -10,11 +10,17 @@ import os
 import signal
 import subprocess
 import sys
+from importlib.metadata import version as pkg_version
 from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
+
+try:
+    __version__ = pkg_version("opc-memory-mcp")
+except Exception:
+    __version__ = "0.0.0"
 
 
 def _detect_project() -> str:
@@ -164,12 +170,14 @@ def store_learning(
 
     if result.returncode != 0:
         return {
+            "version": __version__,
             "success": False,
             "error": result.stderr or "Unknown error",
             "stdout": result.stdout,
         }
 
     return {
+        "version": __version__,
         "success": True,
         "message": result.stdout.strip() or "Learning stored successfully",
     }
@@ -210,6 +218,7 @@ def recall_learnings(
         "--query", query,
         "--k", str(k),
         "--threshold", str(threshold),
+        "--json",
     ]
 
     if text_only:
@@ -231,6 +240,7 @@ def recall_learnings(
 
     if result.returncode != 0:
         return {
+            "version": __version__,
             "success": False,
             "error": result.stderr or "Unknown error",
             "stdout": result.stdout,
@@ -240,6 +250,7 @@ def recall_learnings(
     try:
         learnings = json.loads(result.stdout)
         return {
+            "version": __version__,
             "success": True,
             "learnings": learnings,
             "count": learnings.get("total", len(learnings.get("results", []))),
@@ -247,6 +258,7 @@ def recall_learnings(
     except json.JSONDecodeError:
         # Return raw output if not JSON
         return {
+            "version": __version__,
             "success": True,
             "raw_output": result.stdout.strip(),
         }
@@ -272,6 +284,7 @@ def index_artifacts(
     if mode == "file":
         if not file_path:
             return {
+                "version": __version__,
                 "success": False,
                 "error": "file_path is required when mode=file",
             }
@@ -282,12 +295,14 @@ def index_artifacts(
                 file_path_obj = Path(project_dir) / file_path
             else:
                 return {
+                    "version": __version__,
                     "success": False,
                     "error": f"Relative path '{file_path}' requires project_dir parameter or use absolute path",
                 }
         # Verify file exists before calling script
         if not file_path_obj.exists():
             return {
+                "version": __version__,
                 "success": False,
                 "error": f"File not found: {file_path_obj}",
             }
@@ -296,6 +311,7 @@ def index_artifacts(
         args = [f"--{mode}"]
     else:
         return {
+            "version": __version__,
             "success": False,
             "error": f"Invalid mode: {mode}. Use: all, handoffs, plans, continuity, or file",
         }
@@ -304,12 +320,14 @@ def index_artifacts(
 
     if result.returncode != 0:
         return {
+            "version": __version__,
             "success": False,
             "error": result.stderr or "Unknown error",
             "stdout": result.stdout,
         }
 
     return {
+        "version": __version__,
         "success": True,
         "message": result.stdout.strip() or "Artifacts indexed successfully",
     }
@@ -340,12 +358,14 @@ def mark_handoff(
 
     if result.returncode != 0:
         return {
+            "version": __version__,
             "success": False,
             "error": result.stderr or "Unknown error",
             "stdout": result.stdout,
         }
 
     return {
+        "version": __version__,
         "success": True,
         "message": result.stdout.strip() or "Handoff marked successfully",
     }
@@ -387,6 +407,7 @@ def query_artifacts(
 
     if result.returncode != 0:
         return {
+            "version": __version__,
             "success": False,
             "error": result.stderr or "Unknown error",
             "stdout": result.stdout,
@@ -396,12 +417,14 @@ def query_artifacts(
     try:
         artifacts = json.loads(result.stdout)
         return {
+            "version": __version__,
             "success": True,
             "artifacts": artifacts,
             "count": len(artifacts) if isinstance(artifacts, list) else 1,
         }
     except json.JSONDecodeError:
         return {
+            "version": __version__,
             "success": True,
             "raw_output": result.stdout.strip(),
         }
@@ -416,6 +439,7 @@ def start_daemon() -> dict[str, Any]:
     """
     result = run_opc_script("memory_daemon.py", ["start"])
     return {
+        "version": __version__,
         "success": result.returncode == 0,
         "output": result.stdout.strip() if result.stdout else None,
         "error": result.stderr.strip() if result.returncode != 0 and result.stderr else None,
@@ -427,6 +451,7 @@ def stop_daemon() -> dict[str, Any]:
     """Stop the memory extraction daemon."""
     result = run_opc_script("memory_daemon.py", ["stop"])
     return {
+        "version": __version__,
         "success": result.returncode == 0,
         "output": result.stdout.strip() if result.stdout else None,
         "error": result.stderr.strip() if result.returncode != 0 and result.stderr else None,
@@ -441,6 +466,7 @@ def daemon_status() -> dict[str, Any]:
     """
     result = run_opc_script("memory_daemon.py", ["status"])
     return {
+        "version": __version__,
         "success": result.returncode == 0,
         "output": result.stdout.strip() if result.stdout else None,
         "running": "running" in result.stdout.lower() if result.stdout else False,
@@ -483,6 +509,7 @@ def detect_patterns(
 
     if report:
         return {
+            "version": __version__,
             "success": result.returncode == 0,
             "report": result.stdout.strip() if result.stdout else None,
             "error": result.stderr.strip() if result.returncode != 0 and result.stderr else None,
@@ -495,6 +522,7 @@ def detect_patterns(
         data = {"raw_output": result.stdout.strip() if result.stdout else None}
 
     return {
+        "version": __version__,
         "success": result.returncode == 0,
         **data,
         "error": result.stderr.strip() if result.returncode != 0 and result.stderr else None,
