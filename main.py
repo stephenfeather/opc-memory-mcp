@@ -141,7 +141,7 @@ def store_learning(
         default="",
     ),
     project: str = Field(
-        description="Project name for recall relevance (auto-detected if omitted)",
+        description="Project name (auto-detected from current project). REQUIRED when storing a learning for a different project than the one you are currently working in.",
         default="",
     ),
 ) -> dict[str, Any]:
@@ -191,7 +191,7 @@ def recall_learnings(
     vector_only: bool = Field(description="Pure vector/embedding search", default=False),
     threshold: float = Field(description="Similarity threshold (0.0-1.0)", default=0.2),
     project: str = Field(
-        description="Project name to boost recall relevance (auto-detected if omitted)",
+        description="Project name to boost recall relevance (auto-detected from current project). REQUIRED when recalling learnings for a different project than the one you are currently working in.",
         default="",
     ),
     tags: str = Field(
