@@ -10,6 +10,8 @@ import os
 import signal
 import subprocess
 import sys
+import threading
+import time
 from importlib.metadata import version as pkg_version
 from pathlib import Path
 from typing import Any
@@ -661,6 +663,20 @@ def feedback_summary() -> dict[str, Any]:
     }
 
 
+def _parent_watchdog(original_ppid: int, poll_interval: float = 5.0) -> None:
+    """Exit when the parent process dies (reparented to launchd/init).
+
+    FastMCP's stdio loop does not always detect parent death when Claude is
+    SIGKILL'd, leaving orphaned servers with PPID=1. Polling getppid() is the
+    portable approach on macOS (no PR_SET_PDEATHSIG equivalent).
+    """
+    while True:
+        time.sleep(poll_interval)
+        current_ppid = os.getppid()
+        if current_ppid == 1 or current_ppid != original_ppid:
+            os._exit(0)
+
+
 def run_mcp_server():
     """Entry point for the MCP server."""
     # Handle signals for graceful shutdown in multi-session environments
@@ -669,6 +685,13 @@ def run_mcp_server():
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+
+    # Self-police: exit if parent Claude process dies
+    threading.Thread(
+        target=_parent_watchdog,
+        args=(os.getppid(),),
+        daemon=True,
+    ).start()
 
     # Run with stdio transport
     mcp.run(transport="stdio")
