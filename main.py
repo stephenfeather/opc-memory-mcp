@@ -308,7 +308,9 @@ def index_artifacts(
                 "success": False,
                 "error": f"File not found: {file_path_obj}",
             }
-        args = ["--file", str(file_path_obj)]
+        # --json makes artifact_index.py emit the stored row id on stdout so
+        # callers can mark_handoff without a separate DB lookup (opc #191).
+        args = ["--file", str(file_path_obj), "--json"]
     elif mode in ("all", "handoffs", "plans", "continuity"):
         args = [f"--{mode}"]
     else:
@@ -320,12 +322,50 @@ def index_artifacts(
 
     result = run_opc_script("artifact_index.py", args)
 
+    # Backward-compat: an older artifact_index.py predating --json rejects the
+    # flag (argparse exits non-zero with "unrecognized arguments"). Retry once
+    # without it so this server keeps working against either checkout; the id
+    # just won't be available until the opc-side change is deployed.
+    json_mode = mode == "file"
+    if (
+        json_mode
+        and result.returncode != 0
+        and "--json" in (result.stderr or "")
+    ):
+        result = run_opc_script("artifact_index.py", [a for a in args if a != "--json"])
+        json_mode = False
+
     if result.returncode != 0:
+        error = result.stderr or "Unknown error"
+        if json_mode:
+            # mode=file --json emits a JSON failure payload (with error) on stdout.
+            try:
+                error = json.loads(result.stdout).get("error") or error
+            except json.JSONDecodeError:
+                pass
         return {
             "version": __version__,
             "success": False,
-            "error": result.stderr or "Unknown error",
+            "error": error,
             "stdout": result.stdout,
+        }
+
+    if json_mode:
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            payload = {}
+        return {
+            "version": __version__,
+            "success": True,
+            "id": payload.get("id"),
+            "type": payload.get("type"),
+            "file": payload.get("file"),
+            "message": (
+                f"Indexed {payload.get('type', 'artifact')}: {payload.get('file', '')}".strip()
+                if payload
+                else result.stdout.strip() or "Artifact indexed"
+            ),
         }
 
     return {
