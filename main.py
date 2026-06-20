@@ -221,6 +221,7 @@ def recall_learnings(
         "--k", str(k),
         "--threshold", str(threshold),
         "--json",
+        "--source", "mcp",
     ]
 
     if text_only:

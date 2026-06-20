@@ -169,6 +169,8 @@ Parameters:
 - text_only: false (use embeddings)
 ```
 
+> **Observability:** MCP recalls are logged to the OPC `recall_log` table with `source = "mcp"` (since v0.7.5), distinguishing them from `hook`- and `cli`-driven recalls for cross-project mis-scope analysis.
+
 ### index_artifacts
 
 ```
