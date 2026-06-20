@@ -12,6 +12,10 @@ This project provides an MCP interface to the **OPC (Opinionated Persistent Cont
 |------|-------------|
 | `store_learning` | Store session learnings with embeddings for semantic recall |
 | `recall_learnings` | Semantic search over stored learnings |
+| `query_documents` | Scoped semantic search over ingested document collections (RAG) |
+| `list_document_collections` | List document collections and ingest stats |
+| `scan_document_collection` | Ingest one collection or all (admin/ingest) |
+| `create_document_collection` | Register a new document collection (admin/ingest) |
 | `query_artifacts` | Search Context Graph for precedent from past sessions |
 | `index_artifacts` | Index handoffs, plans, and continuity ledgers |
 | `mark_handoff` | Mark handoff outcomes for tracking |
@@ -170,6 +174,21 @@ Parameters:
 ```
 
 > **Observability:** MCP recalls are logged to the OPC `recall_log` table with `source = "mcp"` (since v0.7.5), distinguishing them from `hook`- and `cli`-driven recalls for cross-project mis-scope analysis.
+
+### query_documents
+
+Scoped RAG search over ingested document collections (wraps `opc-docs query`).
+
+```
+Search the documents for a topic.
+
+Parameters:
+- text: "what does the contract say about termination"
+- collection: "" (default; searches global-scope collections only)
+- limit: 8 (max 100)
+```
+
+> **Scope is a security boundary:** the default search is **global-only**. A `restricted` collection (e.g. medical/legal docs) surfaces **only** when its name is passed via `collection`. There is no "all scopes" option — pass a collection name solely when the caller explicitly targets it. The companion `list_document_collections` is read-only; `scan_document_collection` and `create_document_collection` are admin/ingest operations.
 
 ### index_artifacts
 

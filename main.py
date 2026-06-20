@@ -268,6 +268,200 @@ def recall_learnings(
 
 
 @mcp.tool()
+def query_documents(
+    text: str = Field(description="The question / search text"),
+    collection: str = Field(
+        description=(
+            "Target one collection by name. This is the ONLY way to reach a "
+            "'restricted' collection (e.g. medical/legal docs). The default "
+            "(empty) searches global-scope collections only. Pass a name solely "
+            "when the caller explicitly targets that collection — never to "
+            "broaden scope."
+        ),
+        default="",
+    ),
+    limit: int = Field(
+        description="Maximum number of results (default 8, hard cap 100). Out-of-range values error.",
+        default=8,
+    ),
+) -> dict[str, Any]:
+    """Scoped semantic search across ingested document collections (opc-docs query).
+
+    Retrieval-augmented search over folders of born-digital documents stored in
+    pgvector. Default search is GLOBAL-ONLY; restricted collections surface only
+    when their name is passed via ``collection``.
+    """
+    args = ["query", text, "--json", "--limit", str(limit)]
+    if collection:
+        args.extend(["--collection", collection])
+
+    result = run_opc_script("documents/cli.py", args)
+
+    if result.returncode != 0:
+        return {
+            "version": __version__,
+            "success": False,
+            "error": result.stderr.strip() or "Unknown error",
+            "stdout": result.stdout,
+        }
+
+    try:
+        matches = json.loads(result.stdout)
+        return {
+            "version": __version__,
+            "success": True,
+            "matches": matches,
+            "count": len(matches),
+        }
+    except json.JSONDecodeError:
+        return {
+            "version": __version__,
+            "success": True,
+            "raw_output": result.stdout.strip(),
+        }
+
+
+@mcp.tool()
+def list_document_collections() -> dict[str, Any]:
+    """List document collections and their ingest stats (opc-docs list, read-only)."""
+    result = run_opc_script("documents/cli.py", ["list", "--json"])
+
+    if result.returncode != 0:
+        return {
+            "version": __version__,
+            "success": False,
+            "error": result.stderr.strip() or "Unknown error",
+            "stdout": result.stdout,
+        }
+
+    try:
+        collections = json.loads(result.stdout)
+        return {
+            "version": __version__,
+            "success": True,
+            "collections": collections,
+            "count": len(collections),
+        }
+    except json.JSONDecodeError:
+        return {
+            "version": __version__,
+            "success": True,
+            "raw_output": result.stdout.strip(),
+        }
+
+
+@mcp.tool()
+def scan_document_collection(
+    name: str = Field(
+        description="Collection name to scan. Leave empty and set scan_all=True to scan every collection.",
+        default="",
+    ),
+    scan_all: bool = Field(
+        description="Scan every registered collection (cron-style). Mutually exclusive with name.",
+        default=False,
+    ),
+) -> dict[str, Any]:
+    """Ingest one collection or all of them (opc-docs scan). Incremental, hash-based.
+
+    Admin/ingest operation: reads files from disk and writes chunks to pgvector.
+    """
+    args = ["scan"]
+    if scan_all:
+        args.append("--all")
+    elif name:
+        args.append(name)
+    else:
+        return {
+            "version": __version__,
+            "success": False,
+            "error": "provide a collection name or set scan_all=True",
+        }
+    args.append("--json")
+
+    result = run_opc_script("documents/cli.py", args)
+
+    if result.returncode != 0:
+        return {
+            "version": __version__,
+            "success": False,
+            "error": result.stderr.strip() or "Unknown error",
+            "stdout": result.stdout,
+        }
+
+    try:
+        reports = json.loads(result.stdout)
+        return {
+            "version": __version__,
+            "success": True,
+            "reports": reports,
+            "count": len(reports),
+        }
+    except json.JSONDecodeError:
+        return {
+            "version": __version__,
+            "success": True,
+            "raw_output": result.stdout.strip(),
+        }
+
+
+@mcp.tool()
+def create_document_collection(
+    name: str = Field(description="Unique collection name"),
+    path: str = Field(description="Absolute path to the folder to track"),
+    scope: str = Field(
+        description=(
+            "Retrieval scope: 'global' surfaces in default queries, 'restricted' "
+            "is reachable only when targeted by name. Use 'restricted' for "
+            "sensitive (medical/legal) documents."
+        ),
+        default="global",
+    ),
+    extensions: str = Field(
+        description="Comma-separated file extensions to ingest",
+        default=".pdf,.docx,.txt,.csv,.md,.html,.htm,.xml",
+    ),
+    ocr: bool = Field(
+        description="Request OCR (stored but ignored in v1 — born-digital only)",
+        default=False,
+    ),
+) -> dict[str, Any]:
+    """Register a new document collection in the registry (opc-docs create). Admin/ingest."""
+    args = [
+        "create", name,
+        "--path", path,
+        "--scope", scope,
+        "--extensions", extensions,
+    ]
+    if ocr:
+        args.append("--ocr")
+    args.append("--json")
+
+    result = run_opc_script("documents/cli.py", args)
+
+    if result.returncode != 0:
+        return {
+            "version": __version__,
+            "success": False,
+            "error": result.stderr.strip() or "Unknown error",
+            "stdout": result.stdout,
+        }
+
+    try:
+        collection = json.loads(result.stdout)
+        return {
+            "version": __version__,
+            "success": True,
+            "collection": collection,
+        }
+    except json.JSONDecodeError:
+        return {
+            "version": __version__,
+            "success": True,
+            "raw_output": result.stdout.strip(),
+        }
+
+
+@mcp.tool()
 def index_artifacts(
     mode: str = Field(
         description="Indexing mode: all, handoffs, plans, continuity, or file",

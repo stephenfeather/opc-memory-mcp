@@ -76,3 +76,30 @@ Added `host_id` and `host_name` fields:
 - `host_id` was empty string because MCP server was running with old `opc.json` (before `host_id` was added). Config is loaded at server startup — requires MCP server restart to pick up new `opc.json` values. After restart, `HOST_ID` will be `"stephens-macbook"` and passed to all store calls.
 - Duplicate content_hash dedup confirmed working via `ON CONFLICT DO NOTHING`
 
+## Phase 2: Document-Collection RAG tools (issue #2)
+
+Date: 2026-06-20 — version `0.8.0` (matches opc `0.8.0`, which shipped the layer).
+
+### Background
+
+OPC shipped a scope-aware Document-Collection RAG layer (`scripts/core/documents/`, pgvector-backed) wrapped by the `opc-docs` CLI. The opc-side prerequisite — structured `--json` output on every subcommand — landed in opc PR #225 (`MAX_QUERY_LIMIT = 100`, full untruncated `query` content, ISO-8601 timestamps, errors to stderr + nonzero exit). This phase wraps that CLI as MCP tools.
+
+### Tools added to `main.py`
+
+| Tool | Wraps | Notes |
+|------|-------|-------|
+| `query_documents` | `opc-docs query "<text>" [--collection N] [--limit ≤100] --json` | Primary. Default search is **global-only**; `restricted` collections reachable only by explicit `collection` name. No "all scopes" path exposed (deliberately — see opc `386b16c`). |
+| `list_document_collections` | `opc-docs list --json` | Read-only inventory. |
+| `scan_document_collection` | `opc-docs scan <name>\|--all --json` | Admin/ingest. |
+| `create_document_collection` | `opc-docs create ... --json` | Admin/ingest; always passes `--scope` (default `global`). |
+
+All four mirror the `recall_learnings` wrapper: invoke `run_opc_script("documents/cli.py", args)`, parse `stdout` as JSON on success, return `{success: false, error: stderr}` on nonzero exit.
+
+### Verification (against opc `b910f9b`)
+
+- `list_document_collections()` → `{success: true, collections: [], count: 0}` (no collections registered yet).
+- `query_documents(text, collection="", limit=3)` → `{success: true, matches: [], count: 0}`.
+- `query_documents(..., limit=999)` → `{success: false, error: "--limit must be between 1 and 100"}` (CLI `MAX_QUERY_LIMIT` enforcement surfaced).
+- `scan_document_collection()` with no args → client-side guard error; unknown name → CLI error surfaced.
+- `create_document_collection` not live-tested (would mutate the registry); wrapper is structurally identical to the verified three and the underlying `create --json` is covered by opc's CLI tests.
+
