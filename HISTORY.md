@@ -103,3 +103,23 @@ All four mirror the `recall_learnings` wrapper: invoke `run_opc_script("document
 - `scan_document_collection()` with no args → client-side guard error; unknown name → CLI error surfaced.
 - `create_document_collection` not live-tested (would mutate the registry); wrapper is structurally identical to the verified three and the underlying `create --json` is covered by opc's CLI tests.
 
+## Phase 3: Structured `store_learning` output for forced supersede (issue #235)
+
+Date: 2026-06-23 — version `0.9.0`.
+
+### Background
+
+OPC PR #236 (`Fix #235`) made `--supersedes` survive the semantic-dedup gate: a correction that resembles the row it replaces is no longer flagged as a duplicate before the supersede runs. The fix is entirely backend (`store_learning.py`, `memory_service_pg.py`); the MCP wrapper already forwarded `--supersedes`, so the feature worked through the existing passthrough.
+
+The gap was **observability**, not function. The old `store_learning` wrapper discarded structured output: it ran the script without `--json` and returned `result.stdout.strip()` as an opaque `message`. The backend exits 0 for **both** a successful store and a dedup skip (only genuine failure is nonzero), so a skip — including the new sqlite / pre-migration-postgres fallback paths PR #236 adds — was reported as plain `success: true`. A caller could not tell whether a `--supersedes` actually took effect, fell back to a dedup block, or whether the supersede link silently failed to persist.
+
+### Change in `main.py`
+
+- `store_learning` now passes `--json` and delegates parsing to a new pure function `_parse_store_output(returncode, stdout, stderr)`.
+- The wrapper returns distinct, structured fields: `stored` (a new row was written), `skipped` + `reason` + `existing_id` (dedup blocked), `superseded` (the supersede link was written), `memory_id`, and `error`. A skip is no longer reported as a store.
+- Non-JSON stdout (older script or a crash) falls back to preserving the raw text, so nothing is lost.
+
+### Tests
+
+`tests/test_store_learning.py` (new; pytest added as a dev dependency, `[tool.pytest.ini_options]` configured) — 9 tests covering the parser (stored / supersede / skip / failure / non-JSON fallback) and the tool wiring (`--json` is sent, `--supersedes` is forwarded, a skip is not reported as a store). All green.
+

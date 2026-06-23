@@ -127,6 +127,62 @@ def run_opc_script(script: str, args: list[str]) -> subprocess.CompletedProcess:
 mcp = FastMCP("opc-memory")
 
 
+def _parse_store_output(
+    returncode: int, stdout: str, stderr: str
+) -> dict[str, Any]:
+    """Parse store_learning.py --json output into a structured MCP result.
+
+    Pure function. The backend prints a JSON object and exits 0 for BOTH a
+    successful store and a semantic-dedup skip, non-zero only on genuine
+    failure. Surfacing store/skip/supersede distinctly lets a caller tell
+    whether a --supersedes actually took effect rather than silently falling
+    back to a dedup block (OPC issue #235 / PR #236). On non-JSON output (older
+    script or a crash) we preserve the raw text so nothing is lost.
+    """
+    try:
+        payload = json.loads(stdout) if stdout.strip() else None
+    except (json.JSONDecodeError, ValueError):
+        payload = None
+
+    if not isinstance(payload, dict):
+        return {
+            "version": __version__,
+            "success": returncode == 0,
+            "stored": False,
+            "skipped": False,
+            "error": stderr.strip() or None,
+            "message": stdout.strip() or stderr.strip() or "No output",
+        }
+
+    success = bool(payload.get("success")) and returncode == 0
+    skipped = bool(payload.get("skipped"))
+    result: dict[str, Any] = {
+        "version": __version__,
+        "success": success,
+        "stored": success and not skipped,
+        "skipped": skipped,
+    }
+
+    if skipped:
+        result["reason"] = payload.get("reason", "duplicate")
+        if payload.get("existing_id"):
+            result["existing_id"] = payload["existing_id"]
+        result["message"] = f"Learning skipped: {result['reason']}"
+    elif success:
+        if payload.get("memory_id"):
+            result["memory_id"] = payload["memory_id"]
+        message = f"Learning stored (id: {payload.get('memory_id', 'unknown')})"
+        if payload.get("superseded"):
+            result["superseded"] = payload["superseded"]
+            message += f"; superseded {payload['superseded']}"
+        result["message"] = message
+    else:
+        result["error"] = payload.get("error") or stderr.strip() or "Unknown error"
+        result["message"] = result["error"]
+
+    return result
+
+
 @mcp.tool()
 def store_learning(
     content: str = Field(description="The learning content to store"),
@@ -155,6 +211,7 @@ def store_learning(
         "--type", learning_type,
         "--content", content,
         "--confidence", confidence,
+        "--json",
     ]
 
     if context:
@@ -170,19 +227,7 @@ def store_learning(
 
     result = run_opc_script("store_learning.py", args)
 
-    if result.returncode != 0:
-        return {
-            "version": __version__,
-            "success": False,
-            "error": result.stderr or "Unknown error",
-            "stdout": result.stdout,
-        }
-
-    return {
-        "version": __version__,
-        "success": True,
-        "message": result.stdout.strip() or "Learning stored successfully",
-    }
+    return _parse_store_output(result.returncode, result.stdout, result.stderr)
 
 
 @mcp.tool()

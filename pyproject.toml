@@ -1,6 +1,6 @@
 [project]
 name = "opc-memory-mcp"
-version = "0.8.0"
+version = "0.9.0"
 description = "MCP server exposing OPC memory scripts for semantic recall and learning storage"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -11,6 +11,15 @@ dependencies = [
 
 [project.scripts]
 opc-memory-server = "main:run_mcp_server"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
 
 [build-system]
 requires = ["hatchling"]
